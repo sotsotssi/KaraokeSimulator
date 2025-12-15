@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>노래방 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="script.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+
+        .neon-text {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #a855f7, 0 0 30px #a855f7, 0 0 40px #a855f7;
+        }
+        
+        .tab-btn.active {
+            border-bottom: 2px solid #a855f7;
+            color: #a855f7;
+        }
+
+        .scroll-hidden::-webkit-scrollbar {
+            display: none;
+        }
+        .scroll-hidden {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .marquee-container {
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
+        }
+        .marquee-content {
+            display: inline-block;
+            padding-left: 100%;
+            animation: marquee 15s linear infinite; 
+        }
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+        .progress-bar {
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden max-w-lg mx-auto border-x border-gray-800 shadow-2xl relative">
+
+    <!-- 헤더 -->
+    <header class="bg-gray-900 p-4 flex justify-between items-center z-10 shadow-md">
+        <h1 class="text-2l font-bold text-purple-400">🎤 KARAOKE Simulator <a href="https://x.com/bb_uu_t" target="_blank"><span class="text-xs font-normal text-slate-500 dark:text-slate-400 ml-1">@bb_uu_t</span></a></h1>
+        <div class="flex items-center gap-2">
+            <button onclick="$('file-input-all').click()" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-gray-300" title="전체 데이터 불러오기">📂</button>
+            <button onclick="exportData('all')" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-gray-300" title="전체 데이터 저장">💾</button>
+            <div id="status-indicator" class="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 ml-2">대기중</div>
+        </div>
+        <input type="file" id="file-input-all" class="hidden" accept=".json" onchange="importData(this, 'all')">
+        <input type="file" id="file-input-members" class="hidden" accept=".json" onchange="importData(this, 'members')">
+        <input type="file" id="file-input-songs" class="hidden" accept=".json" onchange="importData(this, 'songs')">
+    </header>
+
+    <!-- 탭 네비게이션 -->
+    <nav class="flex bg-gray-800 text-sm font-medium">
+        <button onclick="switchTab('members')" id="tab-btn-members" class="tab-btn flex-1 py-3 hover:bg-gray-700 transition-colors text-center active">
+            👥 명단 관리
+        </button>
+        <button onclick="switchTab('songs')" id="tab-btn-songs" class="tab-btn flex-1 py-3 hover:bg-gray-700 transition-colors text-center">
+            🎵 노래 예약
+        </button>
+        <button onclick="switchTab('room')" id="tab-btn-room" class="tab-btn flex-1 py-3 hover:bg-gray-700 transition-colors text-center">
+            📺 노래방
+        </button>
+    </nav>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-1 overflow-y-auto relative scroll-hidden">
+        
+        <!-- 1. 명단 관리 탭 -->
+        <section id="tab-members" class="p-4 space-y-4">
+            <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                <h2 class="text-lg font-bold mb-2 text-purple-300">참가자 추가</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="member-input" class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-purple-500" placeholder="참가자 이름 입력">
+                    <button onclick="addMember()" class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded font-bold transition">추가</button>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-lg font-bold text-purple-300">참가자 목록 (<span id="member-count">0</span>명)</h2>
+                    <div class="space-x-1">
+                        <button onclick="$('file-input-members').click()" class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded hover:bg-gray-600">📂 불러오기</button>
+                        <button onclick="exportData('members')" class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded hover:bg-gray-600">💾 저장</button>
+                        <button onclick="clearMembers()" class="text-xs text-red-400 hover:text-red-300 px-2 py-1">삭제</button>
+                    </div>
+                </div>
+                <ul id="member-list" class="space-y-2 max-h-96 overflow-y-auto pr-1">
+                    <li class="text-center text-gray-500 py-4">참가자를 추가해주세요.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 2. 노래 입력 탭 -->
+        <section id="tab-songs" class="p-4 space-y-4 hidden">
+            <div class="bg-gray-800 p-4 rounded-lg shadow-lg space-y-3">
+                <h2 class="text-lg font-bold mb-2 text-green-300">곡 예약하기</h2>
+                <input type="text" id="song-artist" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-green-500" placeholder="가수명">
+                <input type="text" id="song-title" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-green-500" placeholder="노래 제목">
+                <input type="text" id="song-link" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-green-500" placeholder="유튜브 링크 (선택 사항)">
+                <button onclick="addSong()" class="w-full bg-green-600 hover:bg-green-500 px-4 py-2 rounded font-bold transition">예약하기</button>
+            </div>
+
+            <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-lg font-bold text-green-300">예약 목록 (<span id="song-count">0</span>곡)</h2>
+                    <div class="space-x-1">
+                        <button onclick="$('file-input-songs').click()" class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded hover:bg-gray-600">📂 불러오기</button>
+                        <button onclick="exportData('songs')" class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded hover:bg-gray-600">💾 저장</button>
+                        <button onclick="clearSongs()" class="text-xs text-red-400 hover:text-red-300 px-2 py-1">취소</button>
+                    </div>
+                </div>
+                <ul id="song-list" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    <li class="text-center text-gray-500 py-4">예약된 곡이 없습니다.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 3. 노래방 시뮬레이션 탭 -->
+       <section id="tab-room" class="flex flex-col h-full hidden">
+            <!-- 화면 영역 -->
+            <div class="bg-black aspect-video relative flex items-center justify-center border-b border-gray-700 shadow-inner">
+                <div id="screen-placeholder" class="text-center p-4">
+                    <div class="text-4xl mb-2">📺</div>
+                    <p class="text-gray-500 text-sm">재생 버튼을 누르면 시작됩니다.</p>
+                </div>
+                <div id="youtube-frame-container" class="w-full h-full hidden bg-black flex items-center justify-center">
+                    <div id="yt-player"></div>
+                </div>
+                
+                <div id="score-overlay" class="absolute inset-0 bg-black/95 hidden flex flex-col items-center justify-center z-20">
+                    <h3 class="text-2xl font-bold text-yellow-400 mb-2">점수</h3>
+                    <div id="score-value" class="text-6xl font-black text-white neon-text">100</div>
+                    <div id="score-comment" class="mt-4 text-center px-4 text-gray-300">완벽한 무대였습니다!</div>
+                    
+                    <div class="mt-8 flex flex-col items-center">
+                        <p id="next-song-countdown" class="text-sm text-gray-400 mb-2">5초 후 다음 곡이 시작됩니다...</p>
+                        <button onclick="nextSong()" class="bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200">
+                            지금 바로 다음 곡 ▶
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-900 border-b border-gray-800 p-2 overflow-hidden">
+                <div class="marquee-container text-yellow-400 font-mono text-sm">
+                    <div id="now-playing-text" class="marquee-content">현재 재생 중인 곡이 없습니다...</div>
+                </div>
+            </div>
+
+            <div id="log-container" class="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-800/50">
+                <div class="text-center text-xs text-gray-500 my-2">--- 노래방에 입장했습니다 ---</div>
+            </div>
+
+            <div class="p-4 bg-gray-900 border-t border-gray-700 grid grid-cols-2 gap-2">
+                <button id="btn-play" onclick="startKaraoke()" class="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                    <span>▶ 재생</span>
+                </button>
+                <button id="btn-skip" onclick="finishSong()" disabled class="bg-gray-700 hover:bg-gray-600 text-gray-300 py-3 rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+                    <span>⏭ 점수 보기 / 종료</span>
+                </button>
+            </div>
+        </section>
+        
+        <!-- 4. 결과 발표 오버레이 -->
+        <section id="results-overlay" class="absolute inset-0 z-50 bg-gray-900 flex flex-col items-center justify-center hidden p-4 overflow-y-auto">
+            <div id="results-capture-area" class="bg-gray-800 p-6 rounded-t-xl w-full max-w-md border border-purple-500/30">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-white mb-1">🎤 오늘의 노래방 랭킹</h2>
+                    <p class="text-gray-400 text-sm" id="results-date">2000.03.27.</p>
+                </div>
+                
+                <div class="max-h-80 mb-2 bg-gray-900/50 rounded-lg p-2">
+                    <table class="w-full text-sm">
+                        <thead class="text-gray-400 border-b border-gray-700">
+                            <tr>
+                                <th class="pb-2 text-left pl-2">순위</th>
+                                <th class="pb-2 text-left">곡 정보</th>
+                                <th class="pb-2 text-right pr-2">점수</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table-body" class="text-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="bg-gray-800 w-full max-w-md p-6 rounded-b-xl border-x border-b border-purple-500/30 flex flex-col gap-3">
+                <button onclick="downloadResults()" class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                    💾 이미지로 저장
+                </button>
+                <button onclick="restartKaraoke()" class="bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                    🔄 처음부터 다시 시작
+                </button>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
